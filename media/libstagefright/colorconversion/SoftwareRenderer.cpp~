@@ -132,6 +132,8 @@ void SoftwareRenderer::resetFormatIfChanged(const sp<AMessage> &format) {
     CHECK(mCropHeight > 0);
     CHECK(mConverter == NULL || mConverter->isValid());
 
+<<<<<<< HEAD
+=======
 #ifdef EXYNOS4_ENHANCEMENTS
     CHECK_EQ(0,
             native_window_set_usage(
@@ -140,6 +142,7 @@ void SoftwareRenderer::resetFormatIfChanged(const sp<AMessage> &format) {
             | GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_EXTERNAL_DISP
             | GRALLOC_USAGE_HW_FIMC1));
 #else
+>>>>>>> 7533421c80fc24c45f5ec5cdb0b5ff32bf1b37eb
     CHECK_EQ(0,
             native_window_set_usage(
             mNativeWindow.get(),
