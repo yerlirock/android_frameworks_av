@@ -231,6 +231,10 @@ LOCAL_C_INCLUDES += \
 
 endif
 
+# FFMPEG plugin
+LOCAL_C_INCLUDES += \
+	$(TOP)/external/stagefright-plugins/include
+
 LOCAL_MODULE:= libstagefright
 
 LOCAL_MODULE_TAGS := optional
