@@ -3451,7 +3451,7 @@ status_t ACodec::setupErrorCorrectionParameters() {
     }
 
     errorCorrectionType.bEnableHEC = OMX_FALSE;
-    errorCorrectionType.bEnableResync = OMX_TRUE;
+    errorCorrectionType.bEnableResync = OMX_FALSE;
     errorCorrectionType.nResynchMarkerSpacing = 0;
     errorCorrectionType.bEnableDataPartitioning = OMX_FALSE;
     errorCorrectionType.bEnableRVLC = OMX_FALSE;
@@ -3946,9 +3946,6 @@ status_t ACodec::getPortFormat(OMX_U32 portIndex, sp<AMessage> &notify) {
                     notify->setInt32("channel-count", params.nChannels);
                     notify->setInt32("sample-rate", params.nSamplingRate);
 
-                    CHECK(params.nBitPerSample == 16u ||
-                          params.nBitPerSample == 24u ||
-                          params.nBitPerSample == 32u);
                     notify->setInt32("bits-per-sample", params.nBitPerSample);
 
                     if (mChannelMaskPresent) {

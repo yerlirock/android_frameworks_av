@@ -800,6 +800,14 @@ void AudioPolicyManager::updateCallRouting(audio_devices_t rxDevice, int delayMs
         // request to reuse existing output stream if one is already opened to reach the TX
         // path output device
         if (output != AUDIO_IO_HANDLE_NONE) {
+            // close active input (if any) before opening new input
+            audio_io_handle_t activeInput = getActiveInput();
+            if (activeInput != 0) {
+                ALOGV("updateCallRouting() close active input before opening new input");
+                sp<AudioInputDescriptor> activeDesc = mInputs.valueFor(activeInput);
+                stopInput(activeInput, activeDesc->mSessions.itemAt(0));
+                releaseInput(activeInput, activeDesc->mSessions.itemAt(0));
+            }
             sp<AudioOutputDescriptor> outputDesc = mOutputs.valueFor(output);
             ALOG_ASSERT(!outputDesc->isDuplicated(),
                         "updateCallRouting() RX device output is duplicated");
@@ -890,21 +898,9 @@ void AudioPolicyManager::setPhoneState(audio_mode_t state)
 
 #ifdef VOICE_CONCURRENCY
     int voice_call_state = 0;
-    char propValue[PROPERTY_VALUE_MAX];
-    bool prop_playback_enabled = false, prop_rec_enabled=false, prop_voip_enabled = false;
-
-    if(property_get("voice.playback.conc.disabled", propValue, NULL)) {
-        prop_playback_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
-    if(property_get("voice.record.conc.disabled", propValue, NULL)) {
-        prop_rec_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
-    if(property_get("voice.voip.conc.disabled", propValue, NULL)) {
-        prop_voip_enabled = atoi(propValue) || !strncmp("true", propValue, 4);
-    }
-
+    bool prop_playback_enabled = !property_get_bool("voice.playback.conc.disabled", false);
+    bool prop_rec_enabled = !property_get_bool("voice.record.conc.disabled", false);
+    bool prop_voip_enabled = !property_get_bool("voice.voip.conc.disabled", false);
     bool mode_in_call = (AUDIO_MODE_IN_CALL != oldState) && (AUDIO_MODE_IN_CALL == state);
     //query if it is a actual voice call initiated by telephony
     if (mode_in_call) {
@@ -1633,11 +1629,9 @@ audio_io_handle_t AudioPolicyManager::getOutputForDevice(
     // only allow deep buffering for music stream type
     if (stream != AUDIO_STREAM_MUSIC) {
         flags = (audio_output_flags_t)(flags &~AUDIO_OUTPUT_FLAG_DEEP_BUFFER);
-    }
-
-    if ((format == AUDIO_FORMAT_PCM_16_BIT) &&(popcount(channelMask) > 2)) {
-        ALOGV("owerwrite flag(%x) for PCM16 multi-channel(CM:%x) playback", flags ,channelMask);
-        flags = AUDIO_OUTPUT_FLAG_DIRECT;
+    } else if (flags == AUDIO_OUTPUT_FLAG_NONE) {
+        //use DEEP_BUFFER as default output for music stream type
+        flags = AUDIO_OUTPUT_FLAG_DEEP_BUFFER;
     }
 
     sp<IOProfile> profile;
@@ -1657,9 +1651,8 @@ audio_io_handle_t AudioPolicyManager::getOutputForDevice(
     // This may prevent offloading in rare situations where effects are left active by apps
     // in the background.
 
-    if ((((flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) == 0) ||
-            !isNonOffloadableEffectEnabled()) &&
-            flags & AUDIO_OUTPUT_FLAG_DIRECT) {
+    if (((flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) == 0) ||
+            !isNonOffloadableEffectEnabled()) {
         profile = getProfileForDirectOutput(device,
                                            samplingRate,
                                            format,
@@ -2259,6 +2252,12 @@ status_t AudioPolicyManager::getInputForAttr(const audio_attributes_t *attr,
         device = getDeviceAndMixForInputSource(inputSource, &policyMix);
         if (device == AUDIO_DEVICE_NONE) {
             ALOGW("getInputForAttr() could not find device for source %d", inputSource);
+            return BAD_VALUE;
+        }
+        // block request to open input on USB during voice call
+        if((AUDIO_MODE_IN_CALL == mPhoneState) &&
+            (device == AUDIO_DEVICE_IN_USB_DEVICE)) {
+            ALOGV("getInputForAttr(): blocking the request to open input on USB device");
             return BAD_VALUE;
         }
         if (policyMix != NULL) {
@@ -7057,8 +7056,7 @@ bool AudioPolicyManager::isInCall()
 }
 
 bool AudioPolicyManager::isStateInCall(int state) {
-    return ((state == AUDIO_MODE_IN_CALL) || (state == AUDIO_MODE_IN_COMMUNICATION) ||
-       ((state == AUDIO_MODE_RINGTONE) && (mPrevPhoneState == AUDIO_MODE_IN_CALL)));
+    return ((state == AUDIO_MODE_IN_CALL) || (state == AUDIO_MODE_IN_COMMUNICATION));
 }
 
 uint32_t AudioPolicyManager::getMaxEffectsCpuLoad()

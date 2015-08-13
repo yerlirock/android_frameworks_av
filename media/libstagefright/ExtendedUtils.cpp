@@ -120,6 +120,25 @@ status_t ExtendedUtils::HFR::initializeHFR(
     if (meta->findInt32(kKeyHSR, &hsr) && hsr > 0) {
         ALOGI("HSR cue found. Override encode fps to %d", hsr);
         format->setInt32("frame-rate", hsr);
+
+        int maxBitRate;
+        MediaProfiles *profiles = MediaProfiles::getInstance();
+        maxBitRate = profiles->getVideoEncoderParamByName("enc.vid.bps.max", videoEncoder);
+        if (maxBitRate < 0) {
+            ALOGE("Failed to query max bitrate for HSR");
+            return ERROR_UNSUPPORTED;
+        }
+
+        int32_t frameRate = 0, bitRate = 0;
+        CHECK(meta->findInt32(kKeyFrameRate, &frameRate));
+        CHECK(format->findInt32("bitrate", &bitRate));
+
+        // scale the bitrate proportional to the hsr ratio
+        // to maintain quality, but cap it to max-supported.
+        bitRate = (hsr * bitRate) / frameRate;
+        bitRate = bitRate > maxBitRate ? maxBitRate : bitRate;
+        format->setInt32("bitrate", bitRate);
+
         return retVal;
     }
 
@@ -1005,13 +1024,8 @@ bool ExtendedUtils::UseQCHWAACEncoder(audio_encoder Encoder,int32_t Channel,int3
             }
             break;
         case AUDIO_ENCODER_HE_AAC:// for AAC+ format
-            if (Channel == 1) {//mono
-                minBiteRate = MIN_BITERATE_AAC;
-                maxBiteRate = MAX_BITERATE_AAC<(SampleRate*6)?MAX_BITERATE_AAC:(SampleRate*6);
-            } else if (Channel == 2) {//stereo
-                minBiteRate = MIN_BITERATE_AAC;
-                maxBiteRate = MAX_BITERATE_AAC<(SampleRate*12)?MAX_BITERATE_AAC:(SampleRate*12);
-            }
+            // Do not use HW AAC encoder for HE AAC(AAC+) formats.
+            mIsQCHWAACEncoder = false;
             break;
         default:
             ALOGV("encoder:%d not supported by QCOM HW AAC encoder",Encoder);
