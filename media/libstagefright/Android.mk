@@ -208,7 +208,8 @@ LOCAL_C_INCLUDES += \
         $(TOP)/hardware/$(SLSI_DIR)/$(TARGET_SOC)/libhwcmodule \
         $(TOP)/hardware/$(SLSI_DIR)/$(TARGET_SOC)/include \
         $(TOP)/hardware/$(SLSI_DIR)/exynos/libexynosutils \
-        $(TOP)/hardware/$(SLSI_DIR)/exynos/include
+        $(TOP)/hardware/$(SLSI_DIR)/exynos/include \
+        $(TOP)/hardware/$(SLSI_DIR)/exynos/libhwc
 
 LOCAL_ADDITIONAL_DEPENDENCIES := \
         $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
@@ -238,6 +239,14 @@ LOCAL_CFLAGS += -DUSE_SAMSUNG_COLORFORMAT
 LOCAL_C_INCLUDES += \
         $(TOP)/$(TARGET_HAL_PATH)/include
 
+endif
+
+ifeq ($(BOARD_USE_SAMSUNG_CAMERAFORMAT_NV21), true)
+# This needs flag requires the following string constant in
+# CameraParametersExtra.h:
+#
+# const char CameraParameters::PIXEL_FORMAT_YUV420SP_NV21[] = "nv21";
+LOCAL_CFLAGS += -DUSE_SAMSUNG_CAMERAFORMAT_NV21
 endif
 
 # FFMPEG plugin
