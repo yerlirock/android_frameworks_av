@@ -232,6 +232,7 @@ void SoftwareRenderer::render(
         size_t dst_c_size = dst_c_stride * buf->height / 2;
         uint8_t *dst_v = dst_y + dst_y_size;
         uint8_t *dst_u = dst_v + dst_c_size;
+#endif
 
         for (int y = 0; y < mCropHeight; ++y) {
             memcpy(dst_y, src_y, mCropWidth);
